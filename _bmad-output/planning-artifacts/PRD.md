@@ -1,6 +1,6 @@
 # Product Requirements Document — Agent Marketplace
 
-**Version:** 1.1 | **Date:** 2026-02-28 | **Status:** Updated (post-audit)
+**Version:** 1.2 | **Date:** 2026-02-28 | **Status:** Updated (post-validation fixes)
 
 ---
 
@@ -215,7 +215,10 @@ Engineering teams lose **~30% of agent output to rework** caused by skill/tool m
 | Could Have | 8 | V2 enhancements |
 | Won't Have | 4 | Explicitly excluded |
 
-### 5.2 Must Have (V1 MVP)
+### 5.2 Must Have (V1 MVP — Weeks 1-8)
+
+> ⚠️ **Scope Note (post-audit correction):** F6, F9, F10, F11, F12 are marked below but belong to **V1.5 (weeks 9-16)** per the corrected sprint plan in MASTER-v2.md. They are "Must Have for the full product" but **not in the initial 8-week sprint**. Do not treat them as Week 1-8 deliverables.
+
 
 #### F1: Agent Identity Card
 
@@ -315,7 +318,7 @@ Engineering teams lose **~30% of agent output to rework** caused by skill/tool m
 - [ ] All filters combinable
 - [ ] Mobile-responsive (320px minimum)
 
-#### F6: Provider SDK
+#### F6: Provider SDK *(→ V1.5)*
 
 **Description:** TypeScript SDK for agent providers.
 
@@ -363,7 +366,7 @@ Engineering teams lose **~30% of agent output to rework** caused by skill/tool m
 - [ ] Partner network visible on agent card
 - [ ] Auction flow functional
 
-#### F9: Dry Run
+#### F9: Dry Run *(→ V1.5)*
 
 **Description:** Test agent quality before committing full mission.
 
@@ -377,7 +380,7 @@ Engineering teams lose **~30% of agent output to rework** caused by skill/tool m
 - [ ] Quality preview to accurate full mission
 - [ ] Reputation unchanged post dry run
 
-#### F10: Mission DNA
+#### F10: Mission DNA *(→ V1.5)*
 
 **Description:** Semantic fingerprint matching agents to historically similar successful missions.
 
@@ -388,10 +391,11 @@ Engineering teams lose **~30% of agent output to rework** caused by skill/tool m
 - **F10.4** Recommend agents with proven success on similar missions
 
 **Acceptance Criteria:**
-- [ ] DNA matching improves hire success rate by 20%+
+- [ ] Semantic search returns agents with cosine similarity > 0.7 for clearly matching prompts (testable at launch)
 - [ ] Response time <2s
+- [ ] Post-launch metric (after 1,000 missions): avg client score for DNA-matched hires ≥ baseline + 15% (tracked, not blocking launch)
 
-#### F11: Proof of Work Outputs
+#### F11: Proof of Work Outputs *(→ V1.5)*
 
 **Description:** Cryptographically verifiable agent outputs.
 
@@ -404,7 +408,7 @@ Engineering teams lose **~30% of agent output to rework** caused by skill/tool m
 - [ ] Output verifiable via on-chain hash
 - [ ] Signature validation functional
 
-#### F12: Recurring Missions
+#### F12: Recurring Missions *(→ V1.5)*
 
 **Description:** Cron-style scheduled agent calls.
 
@@ -420,7 +424,7 @@ Engineering teams lose **~30% of agent output to rework** caused by skill/tool m
 
 ---
 
-### 5.3 Should Have (V1.5)
+### 5.3 Should Have (V1.5 — Weeks 9-16)
 
 #### F13: Insurance Pool
 
@@ -989,6 +993,63 @@ The crypto onboarding friction (buy crypto → bridge to Base → get AGNT → c
 | Tech | Uptime | >99.5% |
 
 ---
+
+## 12b. Regulatory Compliance Requirements
+
+> **Status:** Required before mainnet launch. Not blocking V1 testnet development.
+
+### 12b.1 GDPR / Data Privacy (EU)
+
+**Requirements:**
+- **C1.1** Users (providers and clients) can request deletion of their off-chain data (PostgreSQL records)
+- **C1.2** On-chain data is immutable by design — users must be informed at registration that blockchain records (reputation, mission outcomes) cannot be deleted
+- **C1.3** Mission payloads (prompts, deliverables) stored off-chain must be encrypted at rest (AES-256) and deleted on user request
+- **C1.4** Privacy policy must disclose: data stored off-chain vs on-chain, retention periods, third parties (IPFS pinning via Pinata, RPC providers Alchemy/Infura)
+- **C1.5** EU users: lawful basis for processing must be documented (contract performance for mission data, legitimate interest for reputation)
+
+**Acceptance Criteria:**
+- [ ] Data deletion endpoint functional for off-chain data
+- [ ] On-chain immutability disclosed in ToS and onboarding flow
+- [ ] Privacy policy reviewed by legal counsel before mainnet
+
+### 12b.2 KYC / AML (Anti-Money Laundering)
+
+**Requirements:**
+- **C2.1** Provider identity verification: minimum self-attestation (name, jurisdiction, email) at registration
+- **C2.2** High-volume providers (> $10K lifetime earnings) subject to enhanced verification (ID document)
+- **C2.3** Transaction monitoring: flag missions > $5K for manual review
+- **C2.4** Politically Exposed Persons (PEP) screening via third-party API before provider approval
+
+**Acceptance Criteria:**
+- [ ] Provider registration collects minimum KYC fields
+- [ ] Enhanced KYC flow functional for high-volume threshold
+- [ ] Manual review queue operational
+
+### 12b.3 OFAC / Sanctions Screening
+
+**Requirements:**
+- **C3.1** All wallet addresses (providers and clients) screened against OFAC SDN list before first transaction
+- **C3.2** Screening provider: Chainalysis or TRM Labs API
+- **C3.3** Blocked wallets receive clear error message and cannot create missions or register agents
+- **C3.4** Periodic re-screening of active wallets (monthly)
+
+**Acceptance Criteria:**
+- [ ] Wallet screening integrated at mission creation and agent registration
+- [ ] Blocked address handling tested
+- [ ] Re-screening job operational
+
+### 12b.4 Token Legal Classification
+
+**Requirements:**
+- **C4.1** Legal opinion obtained on $AGNT classification (utility token vs security) in key jurisdictions (US, EU, Singapore) before mainnet
+- **C4.2** If classified as security in any jurisdiction: geofencing for that jurisdiction required
+- **C4.3** "No exchange listing at launch" policy documented and enforced in smart contract (no exchange approval mechanism in V1)
+
+**Acceptance Criteria:**
+- [ ] Legal opinion document on file before mainnet launch
+- [ ] Jurisdiction risk assessment complete
+- [ ] Exchange listing exclusion enforced at token contract level
+
 
 ## 13. Open Questions
 
