@@ -1,6 +1,6 @@
 # Product Requirements Document — Agent Marketplace
 
-**Version:** 1.2 | **Date:** 2026-02-28 | **Status:** Updated (post-validation fixes)
+**Version:** 1.3 | **Date:** 2026-02-28 | **Status:** Updated (post second-pass audit)
 
 ---
 
@@ -217,6 +217,13 @@ Engineering teams lose **~30% of agent output to rework** caused by skill/tool m
 
 ### 5.2 Must Have (V1 MVP — Weeks 1-8)
 
+> 💳 **Payment Model V1 — Two Flows (post-audit clarification):**
+> - **Crypto flow:** Provider and crypto-native clients use wallet + USDC directly via smart contract escrow
+> - **Fiat flow (§9b):** Fiat clients pay USD via Stripe; platform converts USD→USDC and handles escrow transparently
+> - F3.x requirements describe the **underlying smart contract behavior** (same for both flows)
+> - §9b describes the **fiat client UX layer** on top of that behavior
+> These are NOT contradictory — fiat flow is a UX wrapper over the same escrow contract.
+
 > ⚠️ **Scope Note (post-audit correction):** F6, F9, F10, F11, F12 are marked below but belong to **V1.5 (weeks 9-16)** per the corrected sprint plan in MASTER-v2.md. They are "Must Have for the full product" but **not in the initial 8-week sprint**. Do not treat them as Week 1-8 deliverables.
 
 
@@ -230,7 +237,7 @@ Engineering teams lose **~30% of agent output to rework** caused by skill/tool m
 - **F1.3** Environment specs: runtime, RAM, CPU requirements
 - **F1.4** Pricing: per-call and per-mission prices in $AGNT
 - **F1.5** Real-time availability status and average response time
-- **F1.6** Match score (0-100) auto-calculated from mission description embedding
+- **F1.6** Match score (0-100) displayed on agent card — **V1:** tag overlap score (% of required tags matching agent tags); **V1.5:** semantic embedding score (pgvector)
 - **F1.7** Price estimation before commit (paste prompt → get cost estimate)
 - **F1.8** SLA indicator (deadline commitment: <2h, <24h, flexible)
 - **F1.9** Stack visibility: LLM model, context window size, MCP tools connected
@@ -340,7 +347,7 @@ Engineering teams lose **~30% of agent output to rework** caused by skill/tool m
 
 **Requirements:**
 - **F7.1** ERC-20 standard implementation
-- **F7.2** Protocol fee: 10% total deduction (3% AGNT burn + 5% insurance pool + 2% treasury)
+- **F7.2** Protocol fee: 10% total deduction — **V1:** 3% AGNT burn + 5% held in escrow reserve (insurance pool contract deployed but claims UI = V1.5) + 2% treasury
 - **F7.3** Dynamic burn rate (EIP-1559 style — congestion-based)
 - **F7.4** Staking function for providers
 - **F7.5** Transferable for marketplace payments
@@ -393,7 +400,7 @@ Engineering teams lose **~30% of agent output to rework** caused by skill/tool m
 **Acceptance Criteria:**
 - [ ] Semantic search returns agents with cosine similarity > 0.7 for clearly matching prompts (testable at launch)
 - [ ] Response time <2s
-- [ ] Post-launch metric (after 1,000 missions): avg client score for DNA-matched hires ≥ baseline + 15% (tracked, not blocking launch)
+- [tracked] Post-launch KPI (after 1,000 missions): avg client score for DNA-matched hires ≥ baseline + 15% — **NOT a launch blocker, tracked via Grafana dashboard**
 
 #### F11: Proof of Work Outputs *(→ V1.5)*
 
@@ -426,9 +433,9 @@ Engineering teams lose **~30% of agent output to rework** caused by skill/tool m
 
 ### 5.3 Should Have (V1.5 — Weeks 9-16)
 
-#### F13: Insurance Pool
+#### F13: Insurance Pool *(Pool contract V1, Claims UI V1.5)*
 
-**Description:** Collective provider staking pool covers client if agent fails.
+**Description:** Collective provider staking pool covers client if agent fails. **Note:** 5% fee collected from V1 day 1. Smart contract holds the pool. Claims process (UI + manual review) delivered in V1.5.
 
 **Requirements:**
 - **F13.1** Providers contribute to collective insurance pool
@@ -997,6 +1004,8 @@ The crypto onboarding friction (buy crypto → bridge to Base → get AGNT → c
 ## 12b. Regulatory Compliance Requirements
 
 > **Status:** Required before mainnet launch. Not blocking V1 testnet development.
+> **Budget estimate:** OFAC screening ~$200/month (TRM Labs Starter), Legal opinion ~$5K-15K (crypto-specialist counsel), KYC vendor ~$0.50/verification.
+> **Timeline:** Initiate legal opinion at Week 8 (end of V1 dev), complete before Week 20 mainnet target.
 
 ### 12b.1 GDPR / Data Privacy (EU)
 
