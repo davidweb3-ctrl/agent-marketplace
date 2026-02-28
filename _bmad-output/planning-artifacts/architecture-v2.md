@@ -63,6 +63,7 @@ version: 2.0
 ### Technical Constraints
 
 - **Base L2 (Ethereum)** — ERC-20, UUPS proxy, OpenZeppelin
+- **⚠️ Finality réelle:** ~2s = soft confirmation uniquement. Finality L1 (anti-reorg) = 10-15 minutes (optimistic rollup epoch). Créditer reputation ou release escrow uniquement après `waitForTransactionReceipt` + 2 block confirmations minimum
 - **ERC-8004** — New Ethereum standard for on-chain agent identity (Feb 2026); AgentRegistry should implement
 - **Node.js 22 / TypeScript strict** — API and indexer
 - **Fastify** (not Express) — REST API framework
@@ -123,7 +124,7 @@ This is a Web3/blockchain project. Standard starters (Vite, T3, Next.js) don't i
 | Token standard | ERC-20 + custom AccessControl | $AGNT needs role-based minting control |
 | Mission state machine | On-chain enum + off-chain mirror | Contracts are source of truth; DB is read-optimized cache |
 | OFAC screening | TRM Labs API gateway middleware | Called BEFORE every transaction creation (compliance blocker) |
-| Blockchain indexer | Separate Node.js service (viem watchContractEvent) | Decoupled from API, restartable, catchup mode |
+| Blockchain indexer | `watchContractEvent` (primary) + `getLogs` backfill toutes les 10min + reorg detection + dedup sur txHash | Robustesse prod — watchContractEvent seul = mortel sur volume >1k tx/jour |
 
 ### Data Architecture
 
@@ -483,6 +484,110 @@ agent-marketplace/
 | Fiat layer | `api/lib/stripe.ts`, `api/services/payment.service.ts` |
 
 
+
+
+
+## Corrections Post-Audit Grok 4 (2026-02-28)
+
+> Audit Grok 4 avec 40 sources — findings critiques appliqués.
+
+### 1. Indexer — Robustesse Obligatoire
+
+`watchContractEvent` seul n'est **pas suffisant en prod**. Implémentation requise:
+
+```typescript
+// indexer/src/lib/blockchain.ts
+
+// PRIMARY: websocket watchContractEvent
+const unwatch = publicClient.watchContractEvent({ ... })
+
+// BACKFILL: toutes les 10 minutes, replay les N derniers blocks
+setInterval(async () => {
+  const latest = await publicClient.getBlockNumber()
+  const from = lastProcessedBlock
+  const logs = await publicClient.getLogs({ fromBlock: from, toBlock: latest, ... })
+  await processLogsIdempotent(logs)  // ← dedup sur txHash + logIndex
+}, 10 * 60 * 1000)
+
+// REORG DETECTION: comparer block hash
+// Si block hash change sur un block déjà processé → rollback events de ce block
+```
+
+**Règles:**
+- Dedup OBLIGATOIRE: `UNIQUE(tx_hash, log_index)` sur `mission_events`
+- Fallback RPC multi-provider: Alchemy → Infura → Base public node (en cascade)
+- `indexer_state` stocke le dernier block hash processé (pas juste le numéro)
+- `waitForTransactionReceipt` + 2 confirmations avant tout crédit reputation / release escrow
+
+### 2. Finality — Correction Critique
+
+| Confirmation | Durée | Usage |
+|-------------|-------|-------|
+| Soft (tx incluse dans block L2) | ~2s | UI feedback seulement |
+| Safe (2 block confirmations L2) | ~4s | Indexer processing |
+| **L1 Finality (anti-reorg)** | **10-15 min** | **Release escrow, crédit reputation** |
+
+→ Ne JAMAIS release escrow ou créditer reputation avant finality L1 (ou minimum `safeBlockNumber`).
+
+### 3. UUPS Governance — Sécurité Obligatoire
+
+| Contrat | Upgrade Authority | Timelock |
+|---------|------------------|---------|
+| AgentRegistry | Multisig 3/5 | 48h |
+| MissionEscrow | Multisig 3/5 | 72h |
+| AGNTToken | Multisig 3/5 | 48h |
+| **ReputationOracle** | **Immutable (pas de UUPS)** | — |
+
+**Règles Solidity obligatoires:**
+```solidity
+// Sur TOUTES les implémentations:
+constructor() { _disableInitializers(); }
+
+// Sur _authorizeUpgrade:
+function _authorizeUpgrade(address) internal override onlyTimelock {}
+```
+
+- `DEFAULT_ADMIN_ROLE` = Gnosis Safe multisig 3/5 — JAMAIS EOA
+- ReputationOracle → **immutable** (upgradable = peut réécrire historique → confiance nulle)
+- Storage gaps vérifiés avec Slither avant chaque upgrade
+
+### 4. Slash Governance — Qui Décide ?
+
+**Problème identifié:** ReputationOracle seul pour décider "mission failed" = oracle attack / sybil / griefing.
+
+**Solution V1:**
+```
+Dispute flow:
+  Client claim "failed" → 48h dispute window
+  → Provider peut contester
+  → Si pas de résolution → Admin arbitration (multisig)
+  → Admin décide → slash ou release
+  → Décision on-chain (event loggé, immutable)
+```
+
+- Dispute window: 48h après deadline mission
+- Admin arbitration: multisig 2/3 suffit pour dispute (pas timelock — rapidité nécessaire)
+- V1.5: DAO vote sur disputes >$1000
+
+### 5. Fiat Holdback — Protection Chargeback Stripe
+
+**Problème:** Chargeback Stripe possible 30-90j vs finality blockchain immédiate.
+
+**Solution:**
+- Fiat missions: holdback 7 jours avant que le provider puisse withdraw USDC
+- Holdback stocké en DB: `missions.fiat_holdback_expires_at`
+- Stripe webhook `charge.dispute.created` → gèle le withdraw automatiquement
+- Escrow contract: `releaseAfterHoldback(missionId)` vérifie timestamp on-chain
+
+### 6. Anti-Spam Économique — Rate-Limit Mission
+
+**Problème:** Pas de coût à spammer des créations de missions → DoS escrow + fees.
+
+**Solution V1:**
+- `POST /api/v1/missions` → rate-limit: **5 missions/heure/wallet**
+- Mission creation requiert deposit minimum: **10 USDC** (remboursé si annulé dans 30min)
+- On-chain: `MissionEscrow.createMission()` requiert `msg.value >= MIN_DEPOSIT`
+- Rate-limit économique > rate-limit HTTP pour ce cas
 
 ## Architecture Validation
 
