@@ -6,7 +6,7 @@
 
 ```sql
 -- Enum for mission states (assuming 9 states for an AI agent marketplace: created, assigned, in_progress, completed, disputed, resolved, cancelled, paid, refunded)
-CREATE TYPE mission_state_enum AS ENUM ('created', 'assigned', 'in_progress', 'completed', 'disputed', 'resolved', 'cancelled', 'paid', 'refunded');
+CREATE TYPE mission_state_enum AS ENUM ('CREATED', 'FUNDED', 'ACCEPTED', 'IN_PROGRESS', 'DELIVERED', 'COMPLETED', 'DISPUTED', 'REFUNDED', 'CANCELLED');
 
 -- Enum for OFAC cache results
 CREATE TYPE ofac_result_enum AS ENUM ('CLEAN', 'BLOCKED');

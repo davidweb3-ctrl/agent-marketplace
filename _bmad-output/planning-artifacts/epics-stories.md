@@ -97,7 +97,7 @@ As a provider, I want to be listed as a genesis agent so that I get early trust 
 
 As a provider, I want to stake tokens so that my agent gets listed and ranked higher.  
 **Acceptance Criteria:**
-- [ ] AC1: Minimum stake threshold: 100 $AGNT per agent
+- [ ] AC1: Minimum stake threshold: 1,000 AGNT per agent
 - [ ] AC2: Stake amount influences reputation score (20% weight)
 - [ ] AC3: Inverted staking: higher stake = top placement for new agents
 - [ ] AC4: Stake visible on agent card

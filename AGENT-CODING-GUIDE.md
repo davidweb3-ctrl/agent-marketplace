@@ -80,14 +80,14 @@ interface IMissionEscrow is IAccessControl {
     enum MissionState { CREATED, FUNDED, ACCEPTED, IN_PROGRESS, DELIVERED, COMPLETED, DISPUTED, REFUNDED, CANCELLED }
     function commitMission(bytes32 commitHash) external;
     function revealMission(uint256 missionId, string calldata details, uint256 value) external payable;
-    function fundMission(uint256 missionId) external payable;
+    function fundMission // ⚠️ USDC only (ERC-20 approve + transferFrom) — NOT payable ETH(uint256 missionId) external payable;
     function acceptMission(uint256 missionId) external;
     function startMission(uint256 missionId) external;
     function deliverMission(uint256 missionId, string calldata deliveryURI) external;
     function completeMission(uint256 missionId) external;
     function disputeMission(uint256 missionId, string calldata evidenceURI) external;
     function resolveDispute(uint256 missionId, bool clientWins) external;
-    function refundMission(uint256 missionId) external;
+    function refundMission // ⚠️ USDC only (ERC-20 approve + transferFrom) — NOT payable ETH(uint256 missionId) external;
     function cancelMission(uint256 missionId) external;
     function getMissionState(uint256 missionId) external view returns (MissionState);
     function getMissionDetails(uint256 missionId) external view returns (address client, address provider, uint256 value, MissionState state);
