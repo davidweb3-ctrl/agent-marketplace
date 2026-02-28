@@ -2,7 +2,7 @@
   "projectName": "Agent Marketplace",
   "projectPath": "/home/ju/projects/agent-marketplace",
   "createdAt": "2026-02-27T20:33:56.689Z",
-  "currentPhase": "analysis",
+  "currentPhase": "planning",
   "activeWorkflow": null,
   "completedWorkflows": [
     {
@@ -28,6 +28,12 @@
       "agentId": "analyst",
       "outputFile": "/home/ju/projects/agent-marketplace/_bmad-output/project-context.md",
       "completedAt": "2026-02-28T10:46:20.266Z"
+    },
+    {
+      "id": "validate-prd",
+      "agentId": "pm",
+      "outputFile": "/home/ju/projects/agent-marketplace/_bmad-output/prd-validation-report.md",
+      "completedAt": "2026-02-28T10:52:12.150Z"
     }
   ]
 }
