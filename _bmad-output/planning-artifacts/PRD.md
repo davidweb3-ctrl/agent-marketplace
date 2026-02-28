@@ -1,6 +1,6 @@
 # Product Requirements Document — Agent Marketplace
 
-**Version:** 1.0 | **Date:** 2026-02-27 | **Status:** Draft
+**Version:** 1.1 | **Date:** 2026-02-28 | **Status:** Updated (post-audit)
 
 ---
 
@@ -13,7 +13,8 @@ Agent Marketplace is a decentralized compute marketplace where AI agents are bou
 **Key Differentiators:**
 - On-chain immutable reputation — track record that cannot be deleted or faked
 - Provider staking with slash mechanism — financial skin in the game
-- Zero-trust security stack (TEE + E2E + Smart Contract Escrow)
+- V1 Security: Smart Contract Escrow + E2E AES-256 encryption
+- V2 Security: Zero-trust stack (TEE + Intel SGX / AWS Nitro) — NOT in V1
 - Inter-agent communication — agents can hire other agents with platform discounts
 - Deflationary token model — usage burns tokens, value grows with adoption
 
@@ -100,7 +101,7 @@ Engineering teams lose **~30% of agent output to rework** caused by skill/tool m
 
 ### 3.3 Non-Goals (explicit out of scope)
 
-- **Fiat on-ramp** — deferred to V2 (Stripe integration)
+- **Fiat on-ramp (full crypto-native)** — deferred to V2 (Stripe → USDC transparent layer is V1 however — see Fiat-First Onboarding)
 - **Mobile app** — deferred to V2 (web-first)
 - **DAO governance** — deferred to V3
 - **Cross-chain bridge** — deferred to V2
@@ -620,7 +621,7 @@ Engineering teams lose **~30% of agent output to rework** caused by skill/tool m
 | Feature | Rationale |
 |---------|-----------|
 | Exchange listing at launch | Focus on utility, not speculation. Token usable only on marketplace. |
-| Fiat on-ramp V1 | Defer to V2 when user base justifies integration cost |
+| Fiat on-ramp (full crypto UX) | V1 uses Stripe→USDC transparent layer; full crypto-native UX deferred to V2 |
 | Mobile app V1 | Web-first approach — mobile deferred to V2 |
 | DAO governance V1 | Deferred to V3 — protocol must mature first |
 | Cross-chain bridge V1 | Deferred to V2 — focus on Base L2 |
@@ -870,6 +871,25 @@ struct AgentCard {
 
 ---
 
+
+## 9b. Fiat-First Onboarding (V1)
+
+The crypto onboarding friction (buy crypto → bridge to Base → get AGNT → connect wallet) is a conversion killer for target users (engineering teams). V1 solves this with a fiat-first design:
+
+### V1 — Transparent Crypto Layer
+- Users pay missions in **USD via Stripe**
+- Platform converts USD → USDC → handles AGNT mechanics transparently
+- Users see mission price in USD only
+- Crypto wallet is **optional** (for advanced users / providers wanting on-chain reputation)
+- Result: same UX as hiring on Upwork, with trustless smart contract guarantees underneath
+
+### V2 — Full Crypto-Native
+- Direct wallet payment (no Stripe)
+- On-chain everything visible to users
+- For crypto-native power users
+
+> ⚠️ **Decision:** V1 onboarding = fiat-first. The Web3 tech is the implementation detail, not the feature.
+
 ## 10. Technical Constraints
 
 | Constraint | Description | Impact |
@@ -932,24 +952,29 @@ struct AgentCard {
 
 | Milestone | Description | Target |
 |-----------|-------------|--------|
-| M1 | Smart contracts deployed on Base Sepolia | Week 4 |
-| M2 | API core (Agent CRUD + Mission state machine) | Week 6 |
-| M3 | SDK + Basic UI | Week 8 |
-| M4 | Alpha on testnet, bounty program live | Week 12 |
-| M5 | Mainnet launch, audited contracts | Week 20 |
+| M1 | Smart contracts deployed on Base Sepolia (4 contracts, 90% test coverage) | Week 4 |
+| M2 | API core (Agent CRUD + Mission lifecycle + auth) | Week 6 |
+| M3 | Minimal UI (agent listing, mission creation, provider dashboard) | Week 8 |
+| M4 | Alpha on testnet + genesis agents onboarded | Week 12 |
+| M5 | V1.5 features (SDK, pgvector matching, dry run, inter-agent) | Week 16 |
+| M6 | Mainnet launch (audited contracts) | Week 24 |
 
 ### Cold Start Strategy
 
 | Layer | Mechanism | Target |
 |-------|-----------|--------|
-| Supply | Genesis agents (10-20 hand-picked) | 15 live at launch |
-| Supply | Bounty program (10 $AGNT per listing) | 50+ agents before launch |
-| Supply | Inverted staking (high stake = top) | New providers competitive |
-| Demand | Free missions (100 first users) | 250 missions at launch |
-| Demand | VS Code / CLI plugin | Zero friction adoption |
-| Demand | Hackathon (50 teams) | Founding users + ambassadors |
-| Demand | B2B anchors (5 startups) | 250 missions/month guaranteed |
-| Token | No exchange listing | Focus on utility, not speculation |
+| Supply | **Genesis Program** — 5M AGNT budget (50K AGNT/validated agent) | 100 genesis agents target |
+| Supply | Genesis validation: 10 test missions with score ≥8/10 required | Quality gate at launch |
+| Supply | Inverted staking (high stake = top placement) | New providers competitive |
+| Demand | Client credits: 200 first clients × 500 AGNT credit | 100K AGNT budget |
+| Demand | Hackathon pool: 15M AGNT (3-month bounty program) | Founding users + ambassadors |
+| Demand | Design partners: 5 startups pre-launch pilots (paid or unpaid) | Real missions at launch |
+| Demand | VS Code / CLI plugin (V1.5) | Zero friction adoption |
+| Token | No exchange listing at launch | Focus on utility, not speculation |
+| **Timeline** | Month 1-2: 10 internal genesis agents | Team-operated |
+| **Timeline** | Month 3: Open genesis program to external providers | |
+| **Timeline** | Month 4-6: Activate demand (client credits live) | |
+| **Timeline** | Month 7+: Self-sustaining marketplace | |
 
 ### 12.2 Success Criteria for GA
 
@@ -987,7 +1012,7 @@ struct AgentCard {
 | Event | Token Flow |
 |-------|------------|
 | Mission created | Client deposits $AGNT into escrow |
-|| Agent call (per API hit) | Protocol fee burned (10% total: 3% burn + 5% insurance + 2% treasury) |
+|| Agent call (per API hit) | Protocol fee split: 3% AGNT burn + 5% insurance pool + 2% treasury = 10% total |
 | Mission completed | 50% to provider immediately; 50% on approval |
 | Dispute lost | Provider slashed 10%, client refunded |
 | Bounty earned | Protocol mints for qualifying actions |
@@ -1004,6 +1029,17 @@ struct AgentCard {
 | Skill Verification | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Zero-trust Security | ❌ | ❌ | ❌ | Partial | ✅ |
 | Escrow Payment | ❌ | ❌ | ❌ | ✅ | ✅ |
+
+### B2. Token Burn — Reality Check
+
+> At 10K missions/month × $1K average = $10M volume:
+> - 3% burn of 10% fee = **0.3% of volume burned monthly** = ~300K AGNT/month at $0.10/token
+> - Annual burn at this volume: ~3.6M AGNT = 3.6% of supply
+>
+> **Honest framing:** Token burn is symbolic in V1. The token's real value proposition is **governance rights** (V2 DAO) and **staking access**. Do not market this as a strongly deflationary model.
+> 
+> **Option A (recommended):** Governance-first narrative — token = voting + staking + access  
+> **Option B:** Increase burn to 8%, reduce treasury — revisit at V2 based on real volume data
 
 ### C. Terminology
 

@@ -3,7 +3,17 @@
   "projectPath": "/home/ju/projects/agent-marketplace",
   "createdAt": "2026-02-27T20:33:56.689Z",
   "currentPhase": "analysis",
-  "activeWorkflow": null,
+  "activeWorkflow": {
+    "id": "create-prd",
+    "agentId": "pm",
+    "agentName": "John",
+    "mode": "yolo",
+    "currentStep": 1,
+    "totalSteps": 12,
+    "currentStepFile": "/home/ju/.openclaw/extensions/bmad-method/bmad-method/bmm/workflows/2-plan-workflows/create-prd/steps-c/step-01-init.md",
+    "outputFile": "",
+    "startedAt": "2026-02-28T10:41:19.683Z"
+  },
   "completedWorkflows": [
     {
       "id": "create-product-brief",
