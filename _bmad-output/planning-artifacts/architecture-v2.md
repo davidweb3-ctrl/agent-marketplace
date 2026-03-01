@@ -27,7 +27,7 @@ version: 2.0
 | Blockchain Indexer | Added full spec | Was missing in v1.0 |
 | Fiat-First Layer | Added payment abstraction | Post-audit fix (§9b) |
 | V1 vs V1.5 scope | Clarified per sprint plan | MoSCoW correction |
-| ERC-8004 compliance | Added to AgentRegistry | Market research finding |
+| Agent Identity Standard (inspired by EIP-6551/ERC-8004 draft) compliance | Added to AgentRegistry | Market research finding |
 | Security | TEE strictly V2 | Post-audit correction |
 
 ---
@@ -64,7 +64,7 @@ version: 2.0
 
 - **Base L2 (Ethereum)** — ERC-20, UUPS proxy, OpenZeppelin
 - **⚠️ Finality réelle:** ~2s = soft confirmation uniquement. Finality L1 (anti-reorg) = 10-15 minutes (optimistic rollup epoch). Créditer reputation ou release escrow uniquement après `waitForTransactionReceipt` + 2 block confirmations minimum
-- **ERC-8004** — New Ethereum standard for on-chain agent identity (Feb 2026); AgentRegistry should implement
+- **Agent Identity Standard (inspired by EIP-6551/ERC-8004 draft)** — New Ethereum standard for on-chain agent identity (Feb 2026); AgentRegistry should implement. > **Note:** Interface complete defined in `solidity-interfaces-spec.md`.
 - **Node.js 22 / TypeScript strict** — API and indexer
 - **Fastify** (not Express) — REST API framework
 - **PostgreSQL 16 + pgvector** — off-chain state + semantic search
@@ -124,7 +124,9 @@ This is a Web3/blockchain project. Standard starters (Vite, T3, Next.js) don't i
 | Token standard | ERC-20 + custom AccessControl | $AGNT needs role-based minting control |
 | Mission state machine | On-chain enum + off-chain mirror | Contracts are source of truth; DB is read-optimized cache |
 | OFAC screening | TRM Labs API gateway middleware | Called BEFORE every transaction creation (compliance blocker) |
-| Blockchain indexer | `watchContractEvent` (primary) + `getLogs` backfill toutes les 10min + reorg detection + dedup sur txHash | Robustesse prod — watchContractEvent seul = mortel sur volume >1k tx/jour |
+JY|| Blockchain indexer | `watchContractEvent` (primary) + `getLogs` backfill from cursor (`last_indexed_block` from DB table `indexer_state`) to `current_block`, chunk 100 blocks per call + reorg detection + dedup sur txHash | Robustesse prod — watchContractEvent seul = mortel sur volume >1k tx/jour |
+MX|| Fee split | 3% → AGNT buy-and-burn: USDC sent to treasury, treasury buys AGNT on DEX (Uniswap Base) and sends to 0x000...dead. Executed weekly via keeper job. | Deflationary tokenomics |
+YX|
 
 ### Data Architecture
 
@@ -152,7 +154,10 @@ This is a Web3/blockchain project. Standard starters (Vite, T3, Next.js) don't i
 | OFAC | TRM Labs wallet screening middleware (sync, pre-transaction) |
 | Rate limiting | Fastify rate-limit (Redis backend, per-IP + per-JWT) |
 | Data encryption | AES-256-GCM for sensitive fields (API keys stored in providers table) |
-| TEE | **NOT V1/V1.5** — V2 only |
+KJ|| TEE | **NOT V1/V1.5** — V2 only |
+TT|| Commit-Reveal | Agent matching uses commit-reveal to prevent front-running. Client commits `keccak256(nonce | agentId)` → reveal within 50 blocks. Reveal window: [commit_block + 1, commit_block + 50]. After 50 blocks: commitment expires, CANCELLED. Nonce: 32 bytes random, client-side. |
+TT|
+ZH|### API Design
 
 ### API Design
 
@@ -286,7 +291,29 @@ src/services/agent.service.test.ts   ← same folder, .test.ts suffix
 - ALL state transitions MUST go through `MissionService.transitionState()`
 - This service validates the transition, calls the contract, then updates DB
 - NEVER update `missions.state` in DB directly from anywhere else
-- State enum must match Solidity `MissionState` enum exactly
+YZ|- State enum must match Solidity `MissionState` enum exactly
+YM|
+YM|**MissionEscrow State Diagram:**
+YM|```mermaid
+YM|stateDiagram-v2
+YM|    [*] --> CREATED : createMission() [client]
+YM|    CREATED --> FUNDED : fundMission() [client, USDC transfer]
+YM|    CREATED --> CANCELLED : cancel() [client, before funding]
+YM|    FUNDED --> ACCEPTED : acceptMission() [agent, stake verified ≥1000 AGNT]
+YM|    FUNDED --> REFUNDED : timeout 24h [auto via keeper]
+YM|    ACCEPTED --> IN_PROGRESS : startWork() [agent]
+YM|    ACCEPTED --> REFUNDED : timeout 48h [auto]
+YM|    IN_PROGRESS --> DELIVERED : submitEAL(ealHash) [agent]
+YM|    IN_PROGRESS --> REFUNDED : timeout(deadline) [auto]
+YM|    DELIVERED --> COMPLETED : approve() [client, within 48h]
+YM|    DELIVERED --> DISPUTED : dispute() [client, within 48h]
+YM|    DELIVERED --> COMPLETED : auto-release [after 48h no action]
+YM|    DISPUTED --> COMPLETED : resolveFor(agent) [reviewers 2/3]
+YM|    DISPUTED --> REFUNDED : resolveFor(client) [reviewers 2/3]
+YM|    COMPLETED --> [*]
+YM|    REFUNDED --> [*]
+YM|    CANCELLED --> [*]
+YM|```
 
 **OFAC Screening — mandatory:**
 ```typescript
@@ -296,7 +323,11 @@ async function ofacCheck(walletAddress: string): Promise<void> {
   const result = await trmLabs.screen(walletAddress)
   if (result.risk === 'HIGH') throw new ForbiddenError('OFAC_BLOCKED')
 }
-```
+JB|```
+PS|
+PS|> **Note:** Screening is SYNCHRONOUS and BLOCKING on `createMission` and `fundMission` API calls. Cache 1h for clean wallets only. Never async before financial transactions.
+PS|
+WK|**Indexer sync — never trust DB, always verify:**
 
 **Indexer sync — never trust DB, always verify:**
 - Indexer populates `mission_events` (append-only)
@@ -357,7 +388,7 @@ agent-marketplace/
 │   │
 │   ├── contracts/                   # @agent-marketplace/contracts
 │   │   ├── contracts/
-│   │   │   ├── AgentRegistry.sol    # ERC-8004 compliant agent identity
+│   │   │   │   ├── AgentRegistry.sol    # Agent Identity Standard (EIP-6551/ERC-8004 inspired) compliant agent identity
 │   │   │   ├── MissionEscrow.sol    # Mission lifecycle + payments
 │   │   │   ├── AGNTToken.sol        # ERC-20 governance token
 │   │   │   └── ReputationOracle.sol # On-chain reputation aggregator
@@ -501,7 +532,18 @@ agent-marketplace/
 // PRIMARY: websocket watchContractEvent
 const unwatch = publicClient.watchContractEvent({ ... })
 
-// BACKFILL: toutes les 10 minutes, replay les N derniers blocks
+JT|// BACKFILL: getLogs from cursor stored in DB table `indexer_state`
+YV|// Chunk size: 100 blocks per getLogs call to avoid RPC timeout
+HR|// On restart: resume from cursor. On reorg: rollback to fork point.
+WY|const latest = await publicClient.getBlockNumber()
+HJ|from = lastIndexedBlock  // from DB table `indexer_state`
+WR|while (from < latest) {
+WR|  const to = Math.min(from + 100, latest)
+WR|  const logs = await publicClient.getLogs({ fromBlock: from, toBlock: to, ... })
+WR|  await processLogsIdempotent(logs)  // ← dedup sur txHash + logIndex
+WR|  await db.indexerState.update({ lastIndexedBlock: to })  // persist cursor
+WR|  from = to + 1
+WR|}
 setInterval(async () => {
   const latest = await publicClient.getBlockNumber()
   const from = lastProcessedBlock
