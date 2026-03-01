@@ -254,3 +254,72 @@ export const agents = {
   blocked: { id: 4, score: 0, status: 'blocked' },
 };
 ```
+
+## Post-Brainstorm Test Additions
+
+### 1. EAL Submission Tests (tests/api/routes/eal.test.ts)
+
+```typescript
+describe('POST /missions/:id/eal', () => {
+  it('accepts valid EAL with matching missionId and runCreatedAt > claimedAt')
+  it('rejects EAL with mismatched missionId in mission-binding artifact → 422')
+  it('rejects EAL with run created before mission.claimedAt → 422')
+  it('returns 200 idempotent on duplicate EAL submission')
+})
+```
+
+### 2. ReviewerRegistry Tests (test/ReviewerRegistry.test.ts — Hardhat)
+
+```typescript
+describe('ReviewerRegistry', () => {
+  it('Phase 0→1: transitions at exactly 50 completed missions')
+  it('Phase 1: agent with < 3 missions cannot registerAsReviewer → InsufficientMissions')
+  it('commit-reveal: one party refuses commit → that party forfeits dispute')
+  it('commit-reveal: 3 selected reviewers are distinct and not dispute parties')
+  it('slash: reviewer who misses 72h vote deadline loses 10% of stake')
+  it('reward: reviewer who votes receives max(1% of mission amount / 3, 2 USDC)')
+  it('escalation: 1-1 split after timeout escalates to multisig')
+})
+```
+
+### 3. GitHub Webhook Tests (tests/api/routes/webhook.test.ts)
+
+```typescript
+describe('POST /webhook/github', () => {
+  it('valid signature + labeled event → mission created with BLOCKED status if issueHash exists')
+  it('invalid X-Hub-Signature-256 → 401')
+  it('same issue re-labeled agent-ready → idempotent, no duplicate mission')
+  it('labeled event but no TDL YAML in issue body → 400 with error message')
+})
+```
+
+### 4. Meta-TX Relayer Tests (tests/api/routes/relay.test.ts)
+
+```typescript
+describe('POST /relay', () => {
+  it('valid EIP-2771 meta-tx is forwarded and returns txHash')
+  it('invalid signature → 401')
+  it('11th request in 1h window from same agent → 429 rate limit')
+})
+```
+
+### 5. DAG blocked_by Tests (tests/api/routes/missions.test.ts)
+
+```typescript
+describe('Mission DAG (blocked_by)', () => {
+  it('mission created with unfinished blocker → status BLOCKED')
+  it('completing blocker mission → dependent auto-transitions to OPEN')
+  it('completing blocker when multiple dependents → all dependents with all blockers done → OPEN')
+})
+```
+
+### 6. Edge Case Tests (tests/api/routes/edge-cases.test.ts)
+
+```typescript
+describe('Edge Cases', () => {
+  it('two agents calling acceptMission simultaneously → first wins, second gets MissionAlreadyAccepted')
+  it('fundMission with amount < 10 USDC minimum → InsufficientMissionFund')
+  it('deactivateAgent with active mission → AgentLockedInMission')
+  it('submitEAL second time for same mission → 200 idempotent')
+})
+```
