@@ -267,3 +267,157 @@ interface IReputationOracle is IAccessControl {
     function slashReputation(uint256 agentId, uint256 amount) external;
 }
 ````
+---
+
+## 5. IReviewerRegistry
+
+> **New** — post-brainstorm spec. Anti-Sybil commit-reveal selection, 3-phase bootstrap, USDC staking.
+
+### Enums
+
+```solidity
+enum Phase { Genesis, Open, Decentralized }
+enum ReviewerStatus { Inactive, Active, Suspended }
+```
+
+### Key Structs
+
+```solidity
+struct Reviewer {
+    ReviewerStatus status;
+    uint128 stakedAmount;      // USDC, 6 decimals
+    uint32 disputesAssigned;
+    uint32 disputesVoted;
+    uint32 disputesMissed;
+    uint64 registeredAt;
+    bool isGenesisReviewer;
+}
+
+struct DisputeSelection {
+    uint256 disputeId;
+    bytes32 commitHash;        // keccak256(clientEntropy, agentEntropy)
+    address[3] selectedReviewers;
+    uint64 revealDeadline;
+    uint64 voteDeadline;       // revealTimestamp + 72h
+    bool revealed;
+    bool finalized;
+}
+```
+
+### Interface
+
+```solidity
+interface IReviewerRegistry {
+    // Registration
+    function registerAsReviewer() external;           // Phase 1+, stake 50 USDC
+    function unregister() external;
+    function setGenesisReviewers(address[5] calldata) external; // multisig, Phase 0
+
+    // Commit-Reveal Selection (called by MissionEscrow)
+    function commitEntropy(uint256 disputeId, bytes32 commit) external; // client + agent each call
+    function revealAndSelectReviewers(uint256 disputeId, bytes32 clientEntropy, bytes32 agentEntropy) external;
+
+    // Voting (called by selected reviewers)
+    function vote(uint256 disputeId, bool favorAgent) external;
+
+    // Slash/Reward (called by MissionEscrow after deadline)
+    function finalizeDispute(uint256 disputeId) external;
+    function slashNonVoters(uint256 disputeId) external;
+
+    // Phase management
+    function checkAndTransitionPhase(uint256 totalMissions) external;
+
+    // Views
+    function getReviewer(address) external view returns (Reviewer memory);
+    function getActiveReviewerCount() external view returns (uint256);
+    function currentPhase() external view returns (Phase);
+}
+```
+
+### Key Events
+
+```solidity
+event PhaseTransitioned(Phase indexed oldPhase, Phase indexed newPhase, uint256 totalMissions);
+event ReviewerRegistered(address indexed reviewer, uint128 stakedAmount);
+event EntropyCommitted(uint256 indexed disputeId, bytes32 commitHash);
+event EntropyRevealed(uint256 indexed disputeId, address[3] selectedReviewers);
+event ReviewerSlashed(address indexed reviewer, uint256 indexed disputeId, uint128 slashedAmount);
+event ReviewerRewarded(address indexed reviewer, uint256 indexed disputeId, uint128 rewardAmount);
+event DisputeEscalated(uint256 indexed disputeId);
+```
+
+### Custom Errors
+
+```solidity
+error NotMissionEscrow();
+error InvalidPhase(Phase current, Phase required);
+error AlreadyRegistered();
+error InsufficientStake(uint128 required, uint128 provided);
+error InsufficientMissions(uint32 required, uint32 actual);
+error CommitAlreadySubmitted(uint256 disputeId);
+error RevealMismatch();
+error RevealDeadlineExpired();
+error NotSelectedReviewer();
+error AlreadyVoted();
+error NotEnoughReviewers(uint256 available, uint256 required);
+error ReviewerIsDisputeParty();
+```
+
+### Anti-Sybil Commit-Reveal Selection
+
+**Problem:** `block.prevrandao` is manipulable by validators. Solution: both disputing parties commit entropy.
+
+**Flow:**
+1. `openDispute()` in MissionEscrow triggers → both parties have 24h to call `commitEntropy(disputeId, keccak256(secret))`
+2. After both commits received → 24h reveal window → each calls `revealAndSelectReviewers(disputeId, secret_client, secret_agent)`
+3. Combined entropy: `keccak256(clientSecret, agentSecret, disputeId)` → deterministic reviewer selection from active pool
+4. If one party refuses to commit → they forfeit the dispute (treated as concession)
+
+**Selection algorithm:** Fisher-Yates shuffle on active reviewer pool using entropy as seed. Skip reviewers who are dispute parties.
+
+### Phase Transitions
+
+| Phase | Trigger | Reviewers | Min Pool Size |
+|-------|---------|-----------|---------------|
+| Genesis (0) | Launch | 5 multisig signers | 5 |
+| Open (1) | totalMissions ≥ 50 | Qualified agents (≥3 missions, score ≥4/5, stake 50 USDC) | 10 |
+| Decentralized (2) | totalMissions ≥ 200 | Open pool only (multisig retired) | 15 |
+
+Transition check called by MissionEscrow on every `completeMission()`.
+
+### Reward & Slash Economics
+
+- **Reward per reviewer per dispute:** max(1% of mission amount / 3, 2 USDC)
+- **Slash for non-vote:** 10% of staked amount (5 USDC on 50 USDC stake)
+- **Funding source:** 2% of every mission fee goes to reviewer pool contract
+- **Escalation:** if losing party contests → multisig 3/5 votes within 48h → final, no appeal
+
+### Integration with MissionEscrow
+
+```solidity
+// MissionEscrow calls:
+IReviewerRegistry.commitEntropy(disputeId, commit)   // after openDispute()
+IReviewerRegistry.finalizeDispute(disputeId)          // after vote deadline
+IReviewerRegistry.slashNonVoters(disputeId)           // after vote deadline
+IReviewerRegistry.checkAndTransitionPhase(totalMissions) // on completeMission()
+```
+
+### Critical Tests (Hardhat)
+
+```
+describe("ReviewerRegistry") {
+  it("Phase 0: only genesis reviewers can vote")
+  it("Phase 0→1: transitions at 50 completed missions")
+  it("Phase 1: agent with <3 missions cannot register")
+  it("Phase 1: agent with score <4/5 cannot register")
+  it("commit-reveal: single party refusal = forfeit")
+  it("commit-reveal: both parties provide entropy, 3 unique reviewers selected")
+  it("commit-reveal: selected reviewer who is dispute party is skipped")
+  it("vote: non-selected reviewer cannot vote")
+  it("vote: reviewer votes twice = revert AlreadyVoted")
+  it("slash: non-voter loses 10% stake after deadline")
+  it("reward: voter receives max(1%/3, 2 USDC)")
+  it("escalation: multisig overrides panel decision")
+  it("pool exhaustion: < 3 eligible reviewers → escalate to multisig")
+}
+```
