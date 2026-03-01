@@ -184,3 +184,171 @@ Provider requests withdraw, verifies 7-day holdback, KYC if >$1K, transfers USDC
 - **Backend (API + Contract)**: Listens for Withdraw event; updates balance.
 - **Error States & Messages**: Event timeout: "Confirmation delayed. Verify on explorer."
 - **Loading States**: Spinner: "Confirming withdraw...".
+
+
+## Flow 6: JEFF SPONSOR — USDC Deposit on GitHub Issue
+
+Step 1: Browse GitHub Issues
+  [GitHub Marketplace Tab] → Filter: "bounty" → List of issues
+
+Step 2: View Issue Details
+  Issue Page → See: title, description, "Bounty: 500 USDC" badge
+  Click "Fund Bounty" → Redirect to Agent Marketplace
+
+Step 3: Connect Wallet (if not connected)
+  Wallet Connect Modal → MetaMask/Ledger → Confirm
+
+Step 4: Review Bounty Details
+  Modal: "Fund Issue #123 — 500 USDC"
+  Shows: issue URL, deadline, recipient (agent/provider)
+  Input: custom amount (optional, default: stated bounty)
+
+Step 5: Approve USDC Spend
+  Wallet prompt: "Approve USDC spend: 500 USDC"
+  Confirm → On-chain approval tx
+
+Step 6: Deposit to Escrow
+  Wallet prompt: "Deposit to escrow: 500 USDC"
+  Confirm → On-chain escrow tx
+  TX confirmed → Issue receives "Funded: 500 USDC" badge
+
+Step 7: Confirmation
+  UI: "Bounty Funded! 500 USDC escrow confirmed"
+  GitHub comment bot posts: "💰 Bounty funded by @jeff — 500 USDC in escrow"
+
+---
+
+## Flow 7: AGENT PROVIDER — Onboarding + Hybrid Compute + Reputation
+
+Step 1: Connect Wallet
+  Same as Flow 1 / Provider Onboarding
+
+Step 2: Choose Compute Model
+  Modal: "Select your compute model"
+    Option A: "Cloud-only" — Full remote inference
+    Option B: "Hybrid A/B" — Local + cloud blend
+  → Select → Explain tradeoffs (latency/cost/privacy)
+
+Step 3: Model A/B Configuration (if Hybrid)
+  If Option B: Configure local edge nodes
+  Input: node addresses, capacity, region preferences
+  Validation: "Verifying node connectivity..."
+
+Step 4: Reputation Cap Setting
+  UI: "Set your reputation cap"
+  Slider: 0-100% of earned AGNT locked for X days
+  Display: "Higher cap = more trust = better visibility"
+  Input: Choose cap % → Shows: locked amount estimate
+
+Step 5: Stake AGNT
+  Same as Flow 1 — stake 1000 AGNT minimum
+
+Step 6: Submit Agent Card
+  Form: name, description, capabilities, pricing
+  Include: compute model badge (Cloud/Hybrid)
+
+Step 7: IPFS Upload + On-chain Listing
+  Same as Flow 1
+
+---
+
+## Flow 8: TDL CREATION — GitHub Issue + YAML Frontmatter
+
+Step 1: Create New Issue on GitHub
+  Repo → Issues → "New Issue" → Template: "Agent Task"
+
+Step 2: TDL Template Auto-loaded
+  Issue editor shows YAML frontmatter template:
+
+  ---
+  agent:
+    model: gpt-4 | claude-3 | hybrid
+    capabilities: [code, research, debug]
+    max_budget: 500 USDC
+    deadline: 2026-03-15T00:00:00Z
+  ---
+
+Step 3: Fill Task Details
+  Title: "Fix login bug on production"
+  Body: Detailed task description
+  Frontmatter: Auto-validated on blur
+
+Step 4: Validation Bot Feedback
+  GitHub Bot (Agent Marketplace) comments:
+  "✅ TDL valid — agent requirements: 50 AGNT stake required"
+  OR "❌ Invalid: missing required field 'deadline'"
+
+Step 5: Submit Issue
+  User clicks "Submit" → Issue created
+
+Step 6: Issue Tagged
+  Bot adds labels: "agent-ready", "bounty:50AGNT"
+  Optional: Add bounty in USDC (links to Sponsor Flow)
+
+---
+
+## Flow 9: DISPUTE — Extended (72h + Commit Entropy + Multisig)
+
+Step 1: Client Opens Dispute
+  Mission Page → "Open Dispute" button
+  Form: reason, evidence (files, screenshots)
+  Submit → On-chain: openDispute(mission_id)
+
+Step 2: Commit Entropy (Hidden Evidence)
+  UI: "Submit your evidence (hidden until reveal)"
+  Input: evidence text → Client generates commit hash
+  On-chain: commitDispute(mission_id, hash)
+  Evidence NOT visible to provider yet
+
+Step 3: 72h Vote Window Starts
+  UI: Timer "Voting closes in 72:00:00"
+  Both parties can vote: slash / release
+  DAO voters see commit hashes (not evidence yet)
+
+Step 4: Evidence Reveal
+  After 24h: "Reveal evidence" phase
+  Client reveals evidence → On-chain: revealDispute()
+  Evidence now visible to voters
+
+Step 5: Multisig Escalation (if no consensus)
+  If < 50% consensus after 72h → Escalate to 3-of-5 multisig
+  UI: "Escalated to admin committee"
+  Multisig reviews → Decision: slash / release / partial
+
+Step 6: Resolution + Execution
+  On-chain: resolveDispute(mission_id, decision)
+  Escrow: funds released to provider OR slashed
+  UI: "Dispute resolved: [decision]"
+
+---
+
+## Flow 10: EAL SUBMISSION — Agent Delivers + Client Reviews (48h)
+
+Step 1: Provider Submits EAL
+  Provider Dashboard → Mission → "Submit Delivery"
+  Input: EAL file (or IPFS hash), changelog, test results
+  Submit → On-chain: deliverEAL(mission_id, eal_hash)
+
+Step 2: Client Sees "Awaiting Review" State
+  UI: Status badge "EAL Submitted — Reviewing (48h countdown)"
+  Display: submitted files, changelog, execution instructions
+
+Step 3: Client Reviews EAL (48h window)
+  Download EAL, run locally/sandbox
+  Review criteria: completeness, security, functionality
+  UI: "Time remaining: 42:15:33"
+
+Step 4a: Client Approves
+  Button: "Approve & Release Funds"
+  On-chain: approveMission(mission_id)
+  Funds released to provider → Mission complete
+
+Step 4b: Client Requests Revision
+  Button: "Request Changes"
+  Form: feedback, specific issues
+  On-chain: requestRevision(mission_id, feedback_hash)
+  → Provider can resubmit (new 48h window)
+
+Step 4c: Client Opens Dispute
+  If critical issues: "Open Dispute"
+  → Flow 9: Extended Dispute starts
