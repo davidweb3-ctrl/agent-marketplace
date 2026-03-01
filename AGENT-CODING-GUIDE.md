@@ -9,7 +9,7 @@
 
 ## 1. Résumé du projet
 Agent Marketplace est une plateforme décentralisée sur Base L2 pour connecter clients et providers d'AI agents via des missions escrowées.
-Le token $AGNT (ERC-20, 100M supply) gère staking (min 1,000 AGNT), fees (10% total: 3% burn, 5% insurance, 2% treasury) et gouvernance.
+Le token $AGNT (ERC-20, 100M supply) gère staking (min 1,000 AGNT), fees (10% total: 95% provider, 3% AGNT buy-and-burn (weekly), 2% reviewer pool) et gouvernance.
 Fonctionnalités clés: registre d'agents (ERC-721 compliant), escrow de missions avec state machine, matching basique (tags V1, embeddings V1.5).
 V1 focus: MVP core (missions, staking, escrow) sans inter-agent hiring ou ML avancé; compliance OFAC/KYC intégrée.
 Objectif: Lancement mainnet post-audit, avec narrative governance-first (non deflationary).
@@ -100,6 +100,44 @@ interface IInsurancePool is IAccessControl {
 }
 ```
 
+### New Contracts (post-brainstorm)
+
+- **ReviewerRegistry.sol** — Reviewer pool with 3-phase bootstrap, anti-Sybil commit-reveal selection
+- **MinimalForwarder.sol** — EIP-2771 meta-transactions (agents never need ETH)
+- **ColdStartVault.sol** — Bootstrap: 50 early providers, 1000 AGNT auto-staked (6mo vesting)
+
+## Proof of Work — Execution Attestation Log (EAL)
+
+Every completed mission must produce an EAL (Execution Attestation Log):
+
+```json
+{
+  "version": "eal-v1",
+  "missionId": "0x...",
+  "agentDid": "did:key:...",
+  "environment": {
+    "runtime": "github-actions",
+    "runId": "12345678",
+    "image": "ghcr.io/agent-marketplace/agent-runner:sha256-..."
+  },
+  "trace": {
+    "testResults": { "passed": 42, "failed": 0, "hash": "sha256:..." },
+    "diffHash": "sha256:...",
+    "startedAt": "2026-03-01T00:00:00Z",
+    "completedAt": "2026-03-01T00:12:37Z"
+  },
+  "llmDisclosure": { "used": true, "providers": ["anthropic/claude-sonnet-4"] },
+  "signature": "0x..."
+}
+```
+
+- Payload stored on IPFS, only hash anchored on-chain (~4200 gas)
+- Signed EIP-712 with agent's did:key
+- Anti-forgery: must include `mission-binding` artifact in GitHub Actions run
+- Use `@agent-marketplace/sdk` — handles EAL generation and signing automatically
+
+## 5. Schéma DB
+
 ## 5. Schéma DB
 Tables PostgreSQL avec colonnes essentielles (Prisma schema implied; enums: mission_state_enum, ofac_result_enum).
 
@@ -135,7 +173,7 @@ Tables PostgreSQL avec colonnes essentielles (Prisma schema implied; enums: miss
 - **Sécurité**: UUPS proxy for upgrades; Ownable2Step; ReentrancyGuard on transfer fns; SIWE + JWT auth; AES-256 for sensitive DB fields; No TEE in V1.
 - **Tests**: 90% contract coverage (Hardhat Chai); API e2e with Vitest; CI must pass before merge.
 - **MEV**: Commit-reveal for mission creation (hash first, reveal details); No front-running allowances.
-- **OFAC**: TRM Labs screening pre-transaction; Cache Redis 1h for CLEAN; Block positives; Fail-open if TRM down with alerts; KYC at $1K/tx or $3K lifetime.
+- **OFAC**: TRM Labs screening is SYNCHRONOUS and BLOCKING before createMission and fundMission. Cache 1h for previously cleared wallets only; Block positives; Fail-open if TRM down with alerts; KYC at $1K/tx or $3K lifetime.
 - Autres: Gas < $0.01/tx; Finality wait 2 blocks; 100% state sync DB-blockchain; No GraphQL; GDPR delete endpoint.
 
 ## 9. Démarrer le projet
