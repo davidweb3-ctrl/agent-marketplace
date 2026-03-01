@@ -1121,3 +1121,251 @@ EPIC 1+2+3 ─────────┼──► EPIC 8 (VS Code)
 
 <!-- BMad workflow create-epics-and-stories: v1.1 patch applied 2026-02-28 -->
 <!-- Changes: Epic 6 → V1.5, Dry Run → V1.5, +5 security stories (MEV, OFAC, indexer, benchmark, alerting) -->
+
+#XZ|# EPIC 10: Agent-Driven Development (Jeff Use Case)
+#NV|
+#NP|**Epic Name:** Agent-Driven Development (Jeff Use Case)
+#SZ|**Description:** Enable automated agent-driven development workflows with GitHub integration, EAL verification, and compute governance
+#BM|**User Value Statement:** As a developer (Jeff), I want agents to automatically pick up GitHub issues and deliver code so that development is fully automated.
+#RN|
+#NR|**Dependencies:** Epic 1 (Provider Onboarding), Epic 2 (Mission Creation + Escrow)
+#QR|
+#TH|---
+#NM|
+#SY|### [EPIC-10-1] TDL Validation Bot
+#NP|
+#WH|**[EPIC-10-1] TDL Validation Bot**
+#NV|
+#QK|As a developer, I want a GitHub Action to parse YAML frontmatter and add `agent-ready` label if Zod schema is valid so that only valid tasks enter the marketplace.
+#BP|**Acceptance Criteria:**
+#SW|- [ ] AC1: GitHub Action triggers on issue creation/update
+#TT|- [ ] AC2: Parses YAML frontmatter from issue body
+#YZ|- [ ] AC3: Validates against TDL Zod schema (task_id, description, reward, deadline, skills)
+#HP|- [ ] AC4: Adds `agent-ready` label if valid, `agent-invalid` if not
+#SZ|- [ ] AC5: Comments validation result on issue
+#WM|**Points:** 3 | **Priority:** Must | **Sprint:** 1
+#RR|
+#JB|---
+#NR|
+#KM|### [EPIC-10-2] GitHub Webhook Bridge
+#RX|
+#SM|**[EPIC-10-2] GitHub Webhook Bridge**
+#VR|
+#KM|As a marketplace, I want POST /webhook/github to create missions on-chain so that GitHub issues automatically trigger agent tasks.
+#BP|**Acceptance Criteria:**
+#XZ|- [ ] AC1: Fastify endpoint handles GitHub webhook POST
+#YV|- [ ] AC2: Validates HMAC signature from GitHub
+#QT|- [ ] AC3: Converts issue to mission via createMission on-chain
+#SY|- [ ] AC4: Idempotent: uses issueHash = keccak256(repoOwner, repoName, issueNumber)
+#SY|- [ ] AC5: Returns missionId or existing mission if duplicate
+#NP|**Points:** 5 | **Priority:** Must | **Sprint:** 1
+#BQ|
+#NM|---
+#NM|
+#SB|### [EPIC-10-3] EAL Submission Endpoint
+#XZ|
+#KM|**[EPIC-10-3] EAL Submission Endpoint**
+#BQ|
+#RX|As an agent, I want to submit Execution Attestation Log (EAL) with EIP-712 signature so that execution is verifiable.
+#BP|**Acceptance Criteria:**
+#QW|- [ ] AC1: POST /missions/:id/eal accepts EAL payload
+#TH|- [ ] AC2: Validates EIP-712 signature from agent wallet
+#QR|- [ ] AC3: Stores EAL on IPFS, returns hash
+#VR|- [ ] AC4: Records IPFS hash on-chain linked to mission
+#SW|- [ ] AC5: Returns 400 if signature invalid or expired
+#QM|**Points:** 5 | **Priority:** Must | **Sprint:** 1
+#RR|
+#MM|---
+#NM|
+#NP|### [EPIC-10-4] QA Agent Spot-Check Flow
+#QR|
+#XS|**[EPIC-10-4] QA Agent Spot-Check Flow**
+#XK|
+#QK.As a client, I want automatic QA verification when an agent submits so that quality is ensured without manual review.
+#BP|**Acceptance Criteria:**
+#SW|- [ ] AC1: POST /missions/:id/qa-review triggers verification
+#SY|- [ ] AC2: Structural check: code compiles, tests pass
+#JB|- [ ] AC3: Duration check: execution time within expected range
+#SY|- [ ] AC4: Test replay: runs provided test suite against delivered code
+#SW|- [ ] AC5: Returns QA score (0-100) and pass/fail
+#RR|- [ ] AC6: Blocks payment release if QA score < 70
+#NP|**Points:** 8 | **Priority:** Must | **Sprint:** 2
+#RR|
+#RN|---
+#NM|
+#NB|### [EPIC-10-5] ReviewerRegistry Integration
+#BQ|
+#RX|**[EPIC-10-5] ReviewerRegistry Integration**
+#QM|
+#RN|As a dispute resolver, I want ReviewerRegistry.sol to manage disputes so that conflicts are fairly arbitrated.
+#BP|**Acceptance Criteria:**
+#SY|- [ ] AC1: ReviewerRegistry.sol deployed on Base Sepolia
+#RT|- [ ] AC2: Registered reviewers can vote on disputes
+#SY|- [ ] AC3: Integration with MissionEscrow for fund locking during dispute
+#SY|- [ ] AC4: Resolution triggers payout based on majority vote
+#RT|- [ ] AC5: Dispute events indexed for transparency
+#NP|**Points:** 8 | **Priority:** Must | **Sprint:** 1
+#BQ|
+#TH|---
+#NM|
+#SB|### [EPIC-10-6] Meta-Tx Relayer
+#QM|
+#SZ|**[EPIC-10-6] Meta-Tx Relayer**
+#RX|
+#QW|As an agent without ETH, I want to send gasless transactions so that I can interact with the marketplace.
+#BP|**Acceptance Criteria:**
+#NM|- [ ] AC1: MinimalForwarder.sol deployed (EIP-2771)
+#SY|- [ ] AC2: POST /relay accepts forwarded transactions
+#SQ|- [ ] AC3: Validates signature and nonce
+#TH|- [ ] AC4: Relayer pays gas, deducted from agent balance
+#SY|- [ ] AC5: Replay protection via domain separator
+#NP|**Points:** 5 | **Priority:** Must | **Sprint:** 1
+#QM|
+#TH|---
+#NM|
+#SZ|### [EPIC-10-7] ColdStartVault
+#QS|
+#RW|**[EPIC-10-7] ColdStartVault**
+#QM|
+#QT|As an early provider, I want ColdStartVault.sol to bootstrap the first 50 agents so that the marketplace gains initial traction.
+#BP|**Acceptance Criteria:**
+#NM|- [ ] AC1: ColdStartVault.sol deployed on Base Sepolia
+#SY|- [ ] AC2: 50 slots available for genesis agents
+#SY|- [ ] AC3: Each genesis agent receives 1000 AGNT auto-staked
+#NM|- [ ] AC4: 6-month vesting schedule (cliff 3 months)
+#SY|- [ ] AC5: Early withdrawal imposes 20% penalty
+#NP|**Points:** 3 | **Priority:** Must | **Sprint:** 1
+#QW|
+#TH|---
+#NM|
+#RR|### [EPIC-10-8] Agent SDK Minimal
+#RX|
+#QS|**[EPIC-10-8] Agent SDK Minimal**
+#QM|
+#RK|As an agent developer, I want @agent-marketplace/sdk so that I can integrate with the marketplace easily.
+#BP|**Acceptance Criteria:**
+#SY|- [ ] AC1: npm package @agent-marketplace/sdk published
+#NM|- [ ] AC2: receive_task(): receives mission payload
+#RW|- [ ] AC3: execute(): runs agent logic with provided context
+#SY|- [ ] AC4: submit_eal(): submits EAL with EIP-712 signature
+#RS|- [ ] AC5: TypeScript types for all payloads
+#QM|- [ ] AC6: Documentation with examples
+#NP|**Points:** 8 | **Priority:** Must | **Sprint:** 2
+#RS|
+#TH|---
+#NM|
+#SQ|### [EPIC-10-9] Compute Mode Badge
+#RW|
+#SQ|**[EPIC-10-9] Compute Mode Badge**
+#QN|
+#QT|As a verified agent, I want a "verified-runtime" badge so that clients trust my execution environment.
+#BP|**Acceptance Criteria:**
+#SQ|- [ ] AC1: Badge "verified-runtime" for Model B agents (official GitHub Actions)
+#SQ|- [ ] AC2: Model B agents get +10% matching score bonus
+#SY|- [ ] AC3: Model A agents: reputation cap at 80/100
+#SQ|- [ ] AC4: Badge displayed on agent card
+#SQ|- [ ] AC5: Verification via GitHub Actions metadata
+#NP|**Points:** 3 | **Priority:** Should | **Sprint:** 2
+#QW|
+#TH|---
+#NM|
+#NP|### [EPIC-10-10] Jeff Funding Flow
+#RW|
+#SQ|**[EPIC-10-10] Jeff Funding Flow**
+#QN|
+#QT|As Jeff, I want fundMissions() with deterministic issueHash so that my GitHub issues map directly to funded missions.
+#BP|**Acceptance Criteria:**
+#SY|- [ ] AC1: fundMissions() batch funds multiple missions
+#SY|- [ ] AC2: issueHash = keccak256(repoOwner, repoName, issueNumber)
+#SY|- [ ] AC3: Funding creates mission if not exists
+#SY|- [ ] AC4: Escrow deposit on funding
+#NP|**Points:** 3 | **Priority:** Must | **Sprint:** 1
+#QW|
+#TH|---
+#NM|
+#SQ|## Epic 10 Overall Acceptance Criteria
+#QT|
+#SY|- [ ] TDL validation GitHub Action operational
+#TH|- [ ] GitHub webhook bridge creates missions idempotently
+#SY|- [ ] EAL submission with EIP-712 verification functional
+#SY|- [ ] QA spot-check flow verifies structural/duration/test compliance
+#SY|- [ ] ReviewerRegistry integrated with MissionEscrow
+#SY|- [ ] Meta-tx relayer enables gasless agent transactions
+#SY|- [ ] ColdStartVault bootstraps 50 genesis agents
+#SY|- [ ] Agent SDK published and documented
+#SY|- [ ] Compute mode badges for verified agents
+#QT|- [ ] Jeff funding flow with deterministic issueHash
+#QT|
+#YQ|---
+#QT|
+#SY|# Sprint Planning Update
+#YQ|
+#QT|## Sprint 1: Foundation (Weeks 1-2) — Updated
+#RV|
+#SY|**Focus:** Smart contracts + Core APIs + Token deployment + Jeff Integration
+#RM|
+#SY|| Story ID | Epic | Story Title | Points |
+#SZ||----------|------|-------------|--------|
+#SZ|| EPIC-1-1 | 1 | Agent Registration Flow | 8 |
+#RV|| EPIC-1-2 | 1 | Provider Wallet & Authentication | 5 |
+#SZ|| EPIC-1-5 | 1 | Stake for Agent Listing | 5 |
+#SZ|| EPIC-1-6 | 1 | Unstake with Timelock | 3 |
+#RV|| EPIC-7-40 | 7 | Deploy AGNT Token | 5 |
+#SZ|| EPIC-7-41 | 7 | Protocol Fee Burn | 5 |
+#SZ|| EPIC-9-48 | 9 | Commit-Reveal MEV Protection | 5 |
+#RV|| EPIC-9-49 | 9 | OFAC Async + Cache | 3 |
+#SZ|| EPIC-9-50 | 9 | Indexer Backfill + Reorg | 8 |
+#SZ|| EPIC-9-52 | 9 | Incident Response Alerting | 3 |
+#SQ|| EPIC-10-1 | 10 | TDL Validation Bot | 3 |
+#SZ|| EPIC-10-2 | 10 | GitHub Webhook Bridge | 5 |
+#SZ|| EPIC-10-3 | 10 | EAL Submission Endpoint | 5 |
+#SZ|| EPIC-10-5 | 10 | ReviewerRegistry Integration | 8 |
+#SZ|| EPIC-10-6 | 10 | Meta-Tx Relayer | 5 |
+#SZ|| EPIC-10-7 | 10 | ColdStartVault | 3 |
+#SZ|| EPIC-10-10 | 10 | Jeff Funding Flow | 3 |
+#RM|
+#SZ|**Sprint 1 Total:** 76 points (+26 Jeff stories)
+#SZ|
+#RM|---
+#RM|
+#RR|## Sprint 2: Mission Flow (Weeks 3-4) — Updated
+#RT|
+#SY|**Focus:** Create → Assign → Deliver lifecycle + QA + SDK
+#RX|
+#RT|| Story ID | Epic | Story Title | Points |
+#RV||----------|------|-------------|--------|
+#RS|| EPIC-2-7 | 2 | Create Mission | 5 |
+#RV|| EPIC-2-8 | 2 | Payment Deposit & Escrow | 8 |
+#RX|| EPIC-2-9 | 2 | Accept Mission | 3 |
+#RS|| EPIC-2-11 | 2 | Mission State Transitions | 5 |
+#RX|| EPIC-2-12 | 2 | Delivery & Payment Release | 3 |
+#RS|| EPIC-2-13 | 2 | Auto-Approve on Timeout | 3 |
+#RT|| EPIC-2-14 | 2 | Dispute Resolution | 5 |
+#RV|| EPIC-2-15 | 2 | Provider Slash on Dispute Loss | 3 |
+#RX|| EPIC-2-16 | 2 | Timeout Refund | 2 |
+#RS|| EPIC-4-25 | 4 | Mission WebSocket Events | 5 |
+#RS|| EPIC-4-26 | 4 | Start Mission Work | 2 |
+#RS|| EPIC-4-27 | 4 | Submit Deliverables | 3 |
+#RS|| EPIC-5-33 | 5 | Client Rating System | 2 |
+#RS|| EPIC-10-4 | 10 | QA Agent Spot-Check Flow | 8 |
+#RS|| EPIC-10-8 | 10 | Agent SDK Minimal | 8 |
+#RS|| EPIC-10-9 | 10 | Compute Mode Badge | 3 |
+#RT|
+#RS|**Sprint 2 Total:** 68 points
+#RS|
+#RT|---
+#RR|
+#SY|# Summary — Updated
+#RS|
+#SY|| Metric | Value |
+#RS||--------|-------|
+#RR|| **Total Epics** | 10 |
+#RS|| **Total Stories** | 62 (52 original + 10 new Jeff stories) |
+#SY|| **Total Points** | 252 |
+#RS|| **Sprints** | 4 (8 weeks) |
+#RS|| **Avg Points/Sprint** | 63 |
+#RR|
+#RS|---
+#RT|
+#RT|<!-- BMad workflow create-epics-and-stories: v1.2 patch applied 2026-03-01 -->
+#RT|<!-- Changes: Epic 10 — Agent-Driven Development (Jeff use case), +10 new stories -->
