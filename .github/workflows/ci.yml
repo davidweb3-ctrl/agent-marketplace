@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Foundry
+        run: |
+          curl -L https://foundry.paradigm.xyz | bash
+          export PATH="$HOME/.foundry/bin:$PATH"
+          foundryup
+
+      - name: Get Foundry binary path
+        id: foundry-path
+        run: echo "forge=$HOME/.foundry/bin/forge" >> $GITHUB_OUTPUT
+
+      - name: Build contracts
+        run: |
+          export PATH="$HOME/.foundry/bin:$PATH"
+          cd contracts
+          forge build
+
+      - name: Run tests
+        run: |
+          export PATH="$HOME/.foundry/bin:$PATH"
+          cd contracts
+          forge test
+
+      - name: Generate gas snapshot
+        run: |
+          export PATH="$HOME/.foundry/bin:$PATH"
+          cd contracts
+          forge snapshot
+
+      - name: Upload gas snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: gas-snapshot
+          path: contracts/gas-snapshot.txt
+
+  bot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          cd bot
+          pip install -r requirements.txt
+
+      - name: Run bot tests
+        run: |
+          cd bot
+          pytest tests/ -v
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Slither analysis
+        uses: crytic/slither-action@v0.3.0
+        with:
+          repo: .
+          tool: slither
+          args: --exclude-dependency --fail-high --fail-critical contracts/src/

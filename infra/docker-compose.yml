@@ -1,0 +1,41 @@
+services:
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:latest
+    container_name: anvil
+    ports:
+      - "8545:8545"
+    command: anvil --host 0.0.0.0 --chain-id 31337
+    networks:
+      - agent-marketplace
+
+  ipfs:
+    image: ipfs/kubo:latest
+    container_name: ipfs
+    ports:
+      - "5001:5001"  # API
+      - "8080:8080"  # Gateway
+    volumes:
+      - ipfs_data:/data/ipfs
+    networks:
+      - agent-marketplace
+
+  bot:
+    build:
+      context: ./bot
+      dockerfile: Dockerfile
+    container_name: github-bot
+    env_file:
+      - ./bot/.env
+    depends_on:
+      - anvil
+    networks:
+      - agent-marketplace
+    volumes:
+      - ./bot:/app
+
+networks:
+  agent-marketplace:
+    driver: bridge
+
+volumes:
+  ipfs_data:

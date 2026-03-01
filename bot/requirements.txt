@@ -1,0 +1,4 @@
+PyGithub>=2.0.0
+web3>=6.0.0
+pyyaml>=6.0
+requests>=2.31.0
