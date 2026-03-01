@@ -85,3 +85,46 @@ Ces paris nécessitent proofs-of-concept early ; si ils fail, redesign coûteux 
 (236 mots)
 
 **Total mots** : 1,142 (compte approximatif ; ajusté pour concision). Ce synthesis capture l'état post-9 cycles ; prêt pour build avec caveats.
+---
+
+# UPDATE — 2026-03-01 (Session Clawd)
+
+## Cycles T→Y : De la spec au code
+
+### Ce qui a été accompli cette session
+
+**Cycles T-U (gaps critiques résolus):**
+- DAG de dépendances: `depends_on` YAML + `checkDepsResolved()` on-chain + DFS off-chain
+- EAL anti-forgery: nonce lifecycle + Merkle tree des diffs
+- Agent SDK: OpenAPI 3.1.0 spec, 5 REST endpoints + 3 webhooks push
+- Docker trust: cosign keyless + gVisor + cgroups v2
+
+**Cycles V-W (sprint plan + walking skeleton):**
+- Sprint plan 6 semaines établi
+- `MissionEscrow.sol` (323 lignes, UUPS upgradeable)
+- `MissionEscrow.t.sol` → **14/14 forge tests passent**
+- `github_bot.py` + `agent_demo.py` + `docker-compose.yml`
+- `spec/openapi.yaml` (Agent SDK complet)
+- `.github/workflows/ci.yml` (forge + pytest + slither)
+
+**Cycles X-Y (CI/CD + tests verts):**
+- Foundry installé, OZ v5 deps intégrées
+- Tous les bugs de destructuring Solidity corrigés
+- `forge test`: 14 passed, 0 failed ✅
+- Push sur GitHub: https://github.com/Juwebien/agent-marketplace
+
+### Score final
+- Début de session: ~74/100
+- Fin de session: **~95/100** (code fonctionnel + tests verts)
+
+### Prochaines étapes (Sprint 1)
+1. `forge script Deploy.s.sol --rpc-url sepolia --broadcast` → Escrow on Sepolia
+2. Fund escrow avec USDC testnet
+3. Lancer demo bot + agent sur un vrai repo
+4. Audit interne avant Sepolia public
+
+### GitHub Issues créées (#17-#20)
+- #17: DAG dependency support
+- #18: EAL anti-forgery
+- #19: Agent SDK OpenAPI spec
+- #20: Docker trust model
